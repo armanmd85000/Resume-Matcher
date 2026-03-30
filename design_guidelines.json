@@ -1,0 +1,90 @@
+{
+  "theme": "light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "typography": {
+    "headings": {
+      "family": "Cabinet Grotesk, sans-serif",
+      "classes": "font-sans font-bold tracking-tight text-zinc-900"
+    },
+    "body": {
+      "family": "IBM Plex Sans, sans-serif",
+      "classes": "font-sans leading-relaxed text-zinc-700"
+    },
+    "mono": {
+      "family": "JetBrains Mono, monospace",
+      "classes": "font-mono text-sm tracking-tight"
+    }
+  },
+  "colors": {
+    "background": "#FFFFFF",
+    "surface": "#F4F4F5",
+    "surface_border": "#E4E4E7",
+    "primary": "#0A2540",
+    "primary_hover": "#001B30",
+    "text_main": "#18181B",
+    "text_muted": "#71717A",
+    "accent_success": "#10B981",
+    "accent_warning": "#F59E0B",
+    "accent_danger": "#EF4444"
+  },
+  "spacing_and_layout": {
+    "app_container": "h-screen w-full flex flex-col overflow-hidden bg-zinc-50",
+    "navbar": "h-16 border-b border-zinc-200 bg-white flex items-center justify-between px-8 shrink-0",
+    "main_grid": "flex-1 grid grid-cols-1 md:grid-cols-2 gap-px bg-zinc-200",
+    "panel": "bg-white p-8 flex flex-col h-full overflow-hidden relative",
+    "panel_header": "flex items-center justify-between mb-6 shrink-0",
+    "panel_content": "flex-1 overflow-y-auto min-h-0",
+    "radius": "rounded-none",
+    "a4_preview": {
+      "wrapper": "bg-zinc-100 flex justify-center overflow-y-auto p-8 h-full w-full",
+      "page": "bg-white shadow-xl origin-top transition-transform shrink-0 box-border text-zinc-900",
+      "dimensions": "w-[210mm] min-h-[297mm] p-[20mm]",
+      "print_rules": "print:w-[210mm] print:h-[297mm] print:m-0 print:p-[20mm] print:shadow-none"
+    }
+  },
+  "components": {
+    "textarea": "w-full h-full resize-none border-2 border-transparent focus:border-zinc-900 focus:ring-0 bg-zinc-50 p-6 text-base leading-relaxed text-zinc-800 transition-colors outline-none",
+    "button_primary": "bg-zinc-900 text-white hover:bg-zinc-800 px-6 py-3 rounded-none font-medium transition-colors inline-flex items-center justify-center gap-2",
+    "button_secondary": "bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-50 px-6 py-3 rounded-none font-medium transition-colors inline-flex items-center justify-center gap-2",
+    "badge": "inline-flex items-center px-2.5 py-0.5 rounded-none text-xs font-medium border",
+    "badge_match": "bg-emerald-50 text-emerald-700 border-emerald-200",
+    "badge_missing": "bg-red-50 text-red-700 border-red-200"
+  },
+  "motion": {
+    "hover": "transition-all duration-200 ease-in-out",
+    "panel_slide": "animate-in slide-in-from-right-8 duration-500 fade-in"
+  },
+  "pages": {
+    "home": {
+      "flow": "State 1: Input Mode (Left: JD Textarea, Right: CV Textarea). State 2: Preview Mode (Left: Keyword Analysis & Match Score + Download/Back CTAs, Right: A4 Resume Preview).",
+      "instructions": "Use React state to toggle between Input and Preview. Keep the split-screen layout constant. The transition should feel instant and professional."
+    }
+  },
+  "resume_format": {
+    "rules": [
+      "Use `break-inside-avoid` (CSS: `page-break-inside: avoid; break-inside: avoid;`) on ALL major sections (Experience item, Education item, etc) to prevent breaking across pages.",
+      "Header: Name (text-3xl font-bold), Title, Contact Info (email, phone, location) separated by bullets.",
+      "Professional Summary: Small concise paragraph.",
+      "Core Competencies: Flex wrap of comma-separated keywords or small bordered pills.",
+      "Professional Experience: Job Title, Company, Dates, Location, and Bullet points.",
+      "Education, Certifications, Language: Clean listed formats.",
+      "Typography in Resume: Use standard highly legible font styles. Name: 24pt, Section Headers: 12pt bold uppercase with bottom border, Body: 10pt/11pt.",
+      "Spacing in Resume: Tighten vertical gaps to fit within A4 limits realistically. Use margin-bottom (mb-4) for sections."
+    ]
+  },
+  "accessibility": {
+    "rules": [
+      "Ensure contrast ratio is at least 4.5:1 for all text.",
+      "Include explicit test attributes: `data-testid='jd-input'`, `data-testid='cv-input'`, `data-testid='analyze-btn'`, `data-testid='download-pdf-btn'`, `data-testid='match-score'`.",
+      "Ensure input fields have descriptive placeholder text and aria-labels."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install Google Fonts for Cabinet Grotesk (or use equivalent like Inter/Outfit if unavailable via Fontsource) and IBM Plex Sans.",
+    "Implement pure JS keyword matching: Extract words from JD, remove common stop words (and, the, to, etc.), check against CV text. Score = (Matches / Total JD Keywords) * 100.",
+    "Use standard HTML/Tailwind for the split-screen layout to maintain exact control over borders and full-height scrolling.",
+    "For PDF generation, use `react-to-print` (best for preserving React component CSS) or `html2pdf.js`. Ensure the resume wrapper enforces the A4 dimensions strictly.",
+    "Do NOT use any AI or external API for keyword matching. It must be synchronous local JS logic.",
+    "Ensure all components are written in `.jsx` or `.js` as per the system environment constraints."
+  ]
+}
