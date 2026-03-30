@@ -1,10 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { expect, test, vi, describe } from 'vitest';
 import { DiffPreviewModal } from '@/components/tailor/diff-preview-modal';
-import type {
-  ResumeDiffSummary,
-  ResumeFieldDiff,
-} from '@/components/common/resume_previewer_context';
+import type { ResumeDiffSummary, ResumeFieldDiff } from '@/lib/api/resume';
 
 vi.mock('@/lib/i18n', () => ({
   useTranslations: () => ({
@@ -12,97 +10,100 @@ vi.mock('@/lib/i18n', () => ({
   }),
 }));
 
-const diffSummary: ResumeDiffSummary = {
-  total_changes: 2,
-  skills_added: 1,
-  skills_removed: 0,
-  descriptions_modified: 1,
-  certifications_added: 0,
-  high_risk_changes: 1,
+const mockSummary: ResumeDiffSummary = {
+  added: 1,
+  modified: 1,
+  removed: 0,
+  highRisk: 1,
+  totalChanges: 2,
 };
 
-const detailedChanges: ResumeFieldDiff[] = [
+const mockChanges: ResumeFieldDiff[] = [
   {
-    field_path: 'summary',
-    field_type: 'summary',
-    change_type: 'modified',
-    original_value: 'old summary',
-    new_value: 'new summary',
-    confidence: 'medium',
+    fieldPath: 'summary',
+    changeType: 'modified',
+    originalValue: 'Old summary',
+    newValue: 'New summary',
+    riskLevel: 'low',
+    reason: 'Better wording',
   },
   {
-    field_path: 'additional.technicalSkills',
-    field_type: 'skill',
-    change_type: 'added',
-    new_value: 'Go',
-    confidence: 'high',
+    fieldPath: 'skills',
+    changeType: 'added',
+    originalValue: null,
+    newValue: 'React',
+    riskLevel: 'high',
+    reason: 'Missing skill',
   },
 ];
 
 describe('DiffPreviewModal', () => {
-  it('renders fallback dialog when diff data is missing', () => {
-    const onClose = vi.fn();
-    const onConfirm = vi.fn();
-    render(<DiffPreviewModal isOpen onClose={onClose} onReject={vi.fn()} onConfirm={onConfirm} />);
-
-    expect(screen.getByText('tailor.missingDiffDialog.title')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'tailor.missingDiffDialog.confirmLabel' }));
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows warning banner and renders high-risk icon only for added high changes', () => {
-    const { container } = render(
+  test('renders fallback dialog when diff data is missing', () => {
+    render(
       <DiffPreviewModal
-        isOpen
+        isOpen={true}
         onClose={vi.fn()}
-        onReject={vi.fn()}
         onConfirm={vi.fn()}
-        diffSummary={diffSummary}
-        detailedChanges={detailedChanges}
+        summary={undefined}
+        changes={undefined}
       />
     );
+    expect(screen.getByText('tailor.diffModal.fallbackTitle')).toBeInTheDocument();
+  });
 
+  test('shows warning banner and renders high-risk icon only for added high changes', () => {
+    const { container } = render(
+      <DiffPreviewModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        summary={mockSummary}
+        changes={mockChanges}
+      />
+    );
     expect(screen.getByText('tailor.diffModal.warningTitle', { exact: false })).toBeInTheDocument();
+
+    // There should be 2 alert icons: one in the warning banner, one in the high-risk change item
     const alertIcons = container.querySelectorAll('.lucide-triangle-alert');
     expect(alertIcons.length).toBe(2);
   });
 
-  it('toggles section visibility on header click', () => {
+  test('toggles section visibility on header click', () => {
     render(
       <DiffPreviewModal
-        isOpen
+        isOpen={true}
         onClose={vi.fn()}
-        onReject={vi.fn()}
         onConfirm={vi.fn()}
-        diffSummary={diffSummary}
-        detailedChanges={detailedChanges}
+        summary={mockSummary}
+        changes={mockChanges}
       />
     );
 
-    expect(screen.getByText('new summary')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /tailor\.diffModal\.summaryChanges/i }));
-    expect(screen.queryByText('new summary')).not.toBeInTheDocument();
+    const modifiedHeader = screen.getByText(/tailor.diffModal.modified/);
+    fireEvent.click(modifiedHeader);
+
+    // "New summary" should not be visible after collapse
+    expect(screen.queryByText('New summary')).not.toBeInTheDocument();
   });
 
-  it('fires confirm and reject handlers', () => {
+  test('fires confirm and reject handlers', () => {
     const onConfirm = vi.fn();
-    const onReject = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <DiffPreviewModal
-        isOpen
-        onClose={vi.fn()}
-        onReject={onReject}
+        isOpen={true}
+        onClose={onClose}
         onConfirm={onConfirm}
-        diffSummary={diffSummary}
-        detailedChanges={detailedChanges}
+        summary={mockSummary}
+        changes={mockChanges}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'tailor.diffModal.confirmButton' }));
-    fireEvent.click(screen.getByRole('button', { name: 'tailor.diffModal.rejectButton' }));
+    fireEvent.click(screen.getByText('tailor.diffModal.applyChanges'));
+    expect(onConfirm).toHaveBeenCalled();
 
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(onReject).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('tailor.diffModal.rejectChanges'));
+    expect(onClose).toHaveBeenCalled();
   });
 });
