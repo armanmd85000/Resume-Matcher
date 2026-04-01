@@ -173,7 +173,8 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
         {/* Hidden measurement container - renders content at actual size */}
         <div
           ref={measurementRef}
-          className="absolute opacity-0 pointer-events-none"
+          id="resume-pdf-container"
+          className="absolute opacity-0 pointer-events-none bg-white"
           style={{
             width: contentArea.width,
             left: -9999,

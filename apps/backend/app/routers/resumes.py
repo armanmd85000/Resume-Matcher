@@ -1410,17 +1410,15 @@ async def download_resume_pdf(
         params = f"{params}&lang={lang}"
     url = f"{settings.frontend_base_url}/print/resumes/{resume_id}?{params}"
 
-    # The frontend PaginatedPrint component handles margins via CSS padding
-    # within exact A4/Letter sized .page wrappers.
-    # Therefore we instruct Playwright to print with 0 margins so they aren't doubled.
+    # Use the exact margins provided; compact mode only affects spacing.
     pdf_margins = {
-        "top": 0,
-        "right": 0,
-        "bottom": 0,
-        "left": 0,
+        "top": marginTop,
+        "right": marginRight,
+        "bottom": marginBottom,
+        "left": marginLeft,
     }
 
-    # Render PDF with 0 margins since frontend handles padding
+    # Render PDF with margins applied to every page
     try:
         pdf_bytes = await render_resume_pdf(url, pageSize, margins=pdf_margins)
     except PDFRenderError as e:

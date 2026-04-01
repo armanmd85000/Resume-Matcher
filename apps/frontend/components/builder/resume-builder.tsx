@@ -430,9 +430,55 @@ const ResumeBuilderContent = () => {
 
   const handleDownload = async () => {
     if (!resumeId) {
-      showNotification(t('builder.alerts.downloadNotAvailable'), 'warning');
+      try {
+        setIsDownloading(true);
+        const element = document.getElementById('resume-pdf-container');
+        if (!element) {
+          throw new Error('Resume container not found');
+        }
+
+        // Dynamic import to avoid SSR issues with window object
+        const html2pdf = (await import('html2pdf.js')).default;
+
+        // We need to temporarily make the element visible for html2canvas to capture it
+        const originalStyle = element.getAttribute('style') || '';
+        const originalClass = element.className;
+
+        element.style.opacity = '1';
+        element.style.left = '0px';
+        element.style.position = 'absolute';
+        element.style.zIndex = '-9999';
+        element.className = 'bg-white';
+
+        // Get precise dimensions based on A4
+        const opt = {
+          margin: [
+            templateSettings.margins.top,
+            templateSettings.margins.right,
+            templateSettings.margins.bottom,
+            templateSettings.margins.left
+          ] as [number, number, number, number],
+          filename: sanitizeFilename(resumeTitle || 'My_Resume', 'local', 'resume'),
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: templateSettings.pageSize.toLowerCase(), orientation: 'portrait' as const }
+        };
+
+        await html2pdf().from(element).set(opt).save();
+        showNotification(t('builder.alerts.downloadSuccess'), 'success');
+
+        // Restore original hidden state
+        element.setAttribute('style', originalStyle);
+        element.className = originalClass;
+      } catch (error) {
+        console.error('Failed to generate local PDF:', error);
+        showNotification(t('builder.alerts.downloadFailed'), 'danger');
+      } finally {
+        setIsDownloading(false);
+      }
       return;
     }
+
     try {
       setIsDownloading(true);
       const blob = await downloadResumePdf(resumeId, templateSettings, uiLanguage);
@@ -663,7 +709,7 @@ const ResumeBuilderContent = () => {
                     variant="success"
                     size="sm"
                     onClick={handleDownload}
-                    disabled={!resumeId || isDownloading}
+                    disabled={isDownloading}
                   >
                     <Download className="w-4 h-4" />
                     {isDownloading ? t('common.generating') : t('common.download')}

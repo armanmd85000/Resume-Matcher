@@ -1,5 +1,4 @@
-import { ResumeData } from '@/components/dashboard/resume-component';
-import { PaginatedPrint } from '@/components/print/paginated-print';
+import Resume, { ResumeData } from '@/components/dashboard/resume-component';
 import {
   type TemplateType,
   type PageSize,
@@ -234,11 +233,21 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
     accentColor: parseAccentColor(resolvedSearchParams?.accentColor),
   };
 
+  // Note: Margins are applied by Playwright's PDF renderer (not here)
+  // This ensures margins appear on EVERY page, not just the first
+  // The settings are passed to override CSS variables for spacing/fonts only
+  const printSettings: TemplateSettings = {
+    ...settings,
+    // Zero out margins in CSS since Playwright handles them
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+  };
+
   return (
-    <div className="bg-white">
-      <PaginatedPrint
+    <div className="resume-print bg-white">
+      <Resume
         resumeData={localizedResumeData}
-        settings={settings}
+        template={settings.template}
+        settings={printSettings}
         additionalSectionLabels={additionalSectionLabels}
         sectionHeadings={sectionHeadings}
         fallbackLabels={fallbackLabels}
