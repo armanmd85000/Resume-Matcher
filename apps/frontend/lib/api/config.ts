@@ -48,13 +48,23 @@ export interface LLMHealthCheck {
 
 // Fetch full LLM configuration
 export async function fetchLlmConfig(): Promise<LLMConfig> {
-  const res = await apiFetch('/config/llm-api-key', { credentials: 'include' });
+  try {
+    const res = await apiFetch('/config/llm-api-key', { credentials: 'include' });
 
-  if (!res.ok) {
-    throw new Error(`Failed to load LLM config (status ${res.status}).`);
+    if (!res.ok) {
+      throw new Error(`Failed to load LLM config (status ${res.status}).`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.warn('Backend unavailable, returning empty LLM config', error);
+    return {
+      provider: 'openai',
+      model: '',
+      api_key: '',
+      api_base: null,
+    };
   }
-
-  return res.json();
 }
 
 // Legacy function for backwards compatibility
@@ -110,13 +120,29 @@ export async function testLlmConnection(config?: LLMConfigUpdate): Promise<LLMHe
 
 // Fetch system status
 export async function fetchSystemStatus(): Promise<SystemStatus> {
-  const res = await apiFetch('/status', { credentials: 'include' });
+  try {
+    const res = await apiFetch('/status', { credentials: 'include' });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch system status (status ${res.status}).`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch system status (status ${res.status}).`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.warn('Backend unavailable, falling back to offline system status', error);
+    return {
+      status: 'ready',
+      llm_configured: false,
+      llm_healthy: false,
+      has_master_resume: false,
+      database_stats: {
+        total_resumes: 0,
+        total_jobs: 0,
+        total_improvements: 0,
+        has_master_resume: false,
+      },
+    };
   }
-
-  return res.json();
 }
 
 // Provider display names and default models
@@ -149,13 +175,21 @@ export interface FeatureConfigUpdate {
 
 // Fetch feature configuration
 export async function fetchFeatureConfig(): Promise<FeatureConfig> {
-  const res = await apiFetch('/config/features', { credentials: 'include' });
+  try {
+    const res = await apiFetch('/config/features', { credentials: 'include' });
 
-  if (!res.ok) {
-    throw new Error(`Failed to load feature config (status ${res.status}).`);
+    if (!res.ok) {
+      throw new Error(`Failed to load feature config (status ${res.status}).`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.warn('Backend unavailable, falling back to default feature config', error);
+    return {
+      enable_cover_letter: true,
+      enable_outreach_message: true,
+    };
   }
-
-  return res.json();
 }
 
 // Update feature configuration
@@ -191,13 +225,22 @@ export interface LanguageConfigUpdate {
 
 // Fetch language configuration
 export async function fetchLanguageConfig(): Promise<LanguageConfig> {
-  const res = await apiFetch('/config/language', { credentials: 'include' });
+  try {
+    const res = await apiFetch('/config/language', { credentials: 'include' });
 
-  if (!res.ok) {
-    throw new Error(`Failed to load language config (status ${res.status}).`);
+    if (!res.ok) {
+      throw new Error(`Failed to load language config (status ${res.status}).`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.warn('Backend unavailable, falling back to default language config', error);
+    return {
+      ui_language: 'en',
+      content_language: 'en',
+      supported_languages: ['en', 'es', 'zh', 'ja', 'pt'],
+    };
   }
-
-  return res.json();
 }
 
 // Update language configuration
@@ -234,13 +277,21 @@ export interface PromptConfigUpdate {
 
 // Fetch prompt configuration
 export async function fetchPromptConfig(): Promise<PromptConfig> {
-  const res = await apiFetch('/config/prompts', { credentials: 'include' });
+  try {
+    const res = await apiFetch('/config/prompts', { credentials: 'include' });
 
-  if (!res.ok) {
-    throw new Error(`Failed to load prompt config (status ${res.status}).`);
+    if (!res.ok) {
+      throw new Error(`Failed to load prompt config (status ${res.status}).`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.warn('Backend unavailable, falling back to default prompt config', error);
+    return {
+      default_prompt_id: 'default',
+      prompt_options: [],
+    };
   }
-
-  return res.json();
 }
 
 // Update prompt configuration
