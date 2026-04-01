@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Standalone frontend deployment for Resume Matcher",
   "engines": {
-    "node": ">=22.0.0"
+    "node": "22.x"
   },
   "scripts": {
     "start": "npm run start --prefix apps/frontend",
-    "heroku-postbuild": "npm install --prefix apps/frontend && npm run build --prefix apps/frontend"
+    "heroku-postbuild": "npm ci --include=dev --prefix apps/frontend && npm run build --prefix apps/frontend"
   }
 }
