@@ -11,7 +11,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Internal port configuration for single-port deployment.
-FRONTEND_PORT="3000"
+# Use Heroku's $PORT if provided, otherwise default to 3000
+FRONTEND_PORT="${PORT:-3000}"
 BACKEND_PORT="8000"
 
 # Print banner

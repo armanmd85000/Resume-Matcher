@@ -49,6 +49,8 @@ import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 import { useLanguage } from '@/lib/context/language-context';
 import { downloadBlobAsFile, openUrlInNewTab, sanitizeFilename } from '@/lib/utils/download';
 import type { RegenerateItemInput } from '@/lib/api/enrichment';
+import { ManualAIDialog } from '@/components/ui/manual-ai-dialog';
+import { apiPost } from '@/lib/api/client';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
 
@@ -88,6 +90,11 @@ const ResumeBuilderContent = () => {
     description: string;
     variant: NonNullable<ConfirmDialogProps['variant']>;
   } | null>(null);
+
+  // Manual AI mode states
+  const [showManualCoverLetterDialog, setShowManualCoverLetterDialog] = useState(false);
+  const [showManualOutreachDialog, setShowManualOutreachDialog] = useState(false);
+  const [manualIsSubmitting, setManualIsSubmitting] = useState(false);
 
   const showNotification = useCallback(
     (
@@ -536,21 +543,8 @@ const ResumeBuilderContent = () => {
   // On-demand generation handlers
   const doGenerateCoverLetter = async () => {
     if (!resumeId) return;
-    setIsGeneratingCoverLetter(true);
     setShowRegenerateDialog(null);
-    try {
-      const content = await generateCoverLetter(resumeId);
-      setCoverLetter(content);
-    } catch (error) {
-      console.error('Failed to generate cover letter:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showNotification(
-        t('builder.alerts.coverLetterGenerateFailed', { error: errorMessage }),
-        'danger'
-      );
-    } finally {
-      setIsGeneratingCoverLetter(false);
-    }
+    setShowManualCoverLetterDialog(true);
   };
 
   const handleGenerateCoverLetter = () => {
@@ -563,34 +557,54 @@ const ResumeBuilderContent = () => {
     doGenerateCoverLetter();
   };
 
+  const handleManualCoverLetterSubmit = async (textString: string) => {
+    if (!resumeId) return;
+    setManualIsSubmitting(true);
+    try {
+      // Direct save cover letter via standard resume update since we're returning text
+      await apiPost(`/resume/${resumeId}/cover-letter`, { cover_letter: textString });
+      setCoverLetter(textString);
+      setShowManualCoverLetterDialog(false);
+    } catch (err) {
+      console.error(err);
+      alert('Error applying manual cover letter.');
+    } finally {
+      setManualIsSubmitting(false);
+    }
+  };
+
   const doGenerateOutreach = async () => {
     if (!resumeId) return;
-    setIsGeneratingOutreach(true);
     setShowRegenerateDialog(null);
-    try {
-      const content = await generateOutreachMessage(resumeId);
-      setOutreachMessage(content);
-    } catch (error) {
-      console.error('Failed to generate outreach message:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showNotification(
-        t('builder.alerts.outreachGenerateFailed', { error: errorMessage }),
-        'danger'
-      );
-    } finally {
-      setIsGeneratingOutreach(false);
-    }
+    setShowManualOutreachDialog(true);
   };
 
   const handleGenerateOutreach = () => {
     if (!resumeId) return;
-    // If content exists, show confirmation dialog
     if (outreachMessage) {
       setShowRegenerateDialog('outreach');
       return;
     }
     doGenerateOutreach();
   };
+
+  const handleManualOutreachSubmit = async (textString: string) => {
+    if (!resumeId) return;
+    setManualIsSubmitting(true);
+    try {
+      await apiPost(`/resume/${resumeId}/outreach-message`, { outreach_message: textString });
+      setOutreachMessage(textString);
+      setShowManualOutreachDialog(false);
+    } catch (err) {
+      console.error(err);
+      alert('Error applying manual outreach message.');
+    } finally {
+      setManualIsSubmitting(false);
+    }
+  };
+
+  const coverLetterPromptText = `Please write a professional cover letter based on my attached resume and the job description I'll provide. Ensure it highlights my relevant skills and experience. Output ONLY the plain text of the cover letter.`;
+  const outreachPromptText = `Please write a cold outreach message to the hiring manager for the attached job description, based on my resume. Keep it concise, engaging, and professional. Output ONLY the plain text of the message.`;
 
   return (
     <div
@@ -1010,6 +1024,28 @@ const ResumeBuilderContent = () => {
         onAccept={regenerateWizard.acceptChanges}
         onReject={regenerateWizard.rejectAndRegenerate}
         onClose={regenerateWizard.reset}
+      />
+
+      <ManualAIDialog
+        open={showManualCoverLetterDialog}
+        onOpenChange={setShowManualCoverLetterDialog}
+        title="Generate Cover Letter"
+        instructions="Copy the prompt below and paste it into your AI (ChatGPT/Claude), along with your resume text and the job description. Paste the generated cover letter back here."
+        promptText={coverLetterPromptText}
+        expectedFormat="(Plain text cover letter)"
+        onSubmit={handleManualCoverLetterSubmit}
+        isSubmitting={manualIsSubmitting}
+      />
+
+      <ManualAIDialog
+        open={showManualOutreachDialog}
+        onOpenChange={setShowManualOutreachDialog}
+        title="Generate Outreach Message"
+        instructions="Copy the prompt below and paste it into your AI (ChatGPT/Claude), along with your resume text and the job description. Paste the generated outreach message back here."
+        promptText={outreachPromptText}
+        expectedFormat="(Plain text email/message)"
+        onSubmit={handleManualOutreachSubmit}
+        isSubmitting={manualIsSubmitting}
       />
     </div>
   );

@@ -400,101 +400,16 @@ async def check_llm_health(
     include_details: bool = False,
     test_prompt: str | None = None,
 ) -> dict[str, Any]:
-    """Check if the LLM provider is accessible and working."""
-    if config is None:
-        config = get_llm_config()
+    """Check if the LLM provider is accessible and working.
 
-    # Check if API key is configured (except for Ollama)
-    if config.provider != "ollama" and not config.api_key:
-        return {
-            "healthy": False,
-            "provider": config.provider,
-            "model": config.model,
-            "error_code": "api_key_missing",
-        }
-
-    model_name = get_model_name(config)
-
-    prompt = test_prompt or "Hi"
-
-    try:
-        # Make a minimal test call with timeout
-        # Pass API key directly to avoid race conditions with global os.environ
-        kwargs: dict[str, Any] = {
-            "model": model_name,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 16,
-            "api_key": config.api_key,
-            "api_base": _normalize_api_base(config.provider, config.api_base),
-            "timeout": LLM_TIMEOUT_HEALTH_CHECK,
-        }
-        reasoning_effort = _get_reasoning_effort(config.provider, model_name)
-        if reasoning_effort:
-            kwargs["reasoning_effort"] = reasoning_effort
-
-        response = await litellm.acompletion(**kwargs)
-        content = _extract_choice_text(response.choices[0])
-        if not content:
-            # Check if the model responded with reasoning/thinking content
-            message = response.choices[0].message
-            has_reasoning = getattr(message, "reasoning_content", None) or getattr(
-                message, "thinking", None)
-            if not has_reasoning:
-                # LLM-003: Empty response should mark health check as unhealthy
-                logging.warning(
-                    "LLM health check returned empty content",
-                    extra={"provider": config.provider, "model": config.model},
-                )
-                result: dict[str, Any] = {
-                    "healthy": False,  # Fixed: empty content means unhealthy
-                    "provider": config.provider,
-                    "model": config.model,
-                    "response_model": response.model if response else None,
-                    "error_code": "empty_content",  # Changed from warning_code
-                    "message": "LLM returned empty response",
-                }
-                if include_details:
-                    result["test_prompt"] = _to_code_block(prompt)
-                    result["model_output"] = _to_code_block(None)
-                return result
-
-        result = {
-            "healthy": True,
-            "provider": config.provider,
-            "model": config.model,
-            "response_model": response.model if response else None,
-        }
-        if include_details:
-            result["test_prompt"] = _to_code_block(prompt)
-            result["model_output"] = _to_code_block(content)
-        return result
-    except Exception as e:
-        # Log full exception details server-side, but do not expose them to clients
-        logging.exception(
-            "LLM health check failed",
-            extra={"provider": config.provider, "model": config.model},
-        )
-
-        # Provide a minimal, actionable client-facing hint without leaking secrets.
-        error_code = "health_check_failed"
-        message = str(e)
-        if "404" in message and "/v1/v1/" in message:
-            error_code = "duplicate_v1_path"
-        elif "404" in message:
-            error_code = "not_found_404"
-        elif "<!doctype html" in message.lower() or "<html" in message.lower():
-            error_code = "html_response"
-        result = {
-            "healthy": False,
-            "provider": config.provider,
-            "model": config.model,
-            "error_code": error_code,
-        }
-        if include_details:
-            result["test_prompt"] = _to_code_block(prompt)
-            result["model_output"] = _to_code_block(None)
-            result["error_detail"] = _to_code_block(message)
-        return result
+    MANUAL MODE OVERRIDE: Always returns healthy since no actual LLM is needed.
+    """
+    return {
+        "healthy": True,
+        "provider": "manual",
+        "model": "manual",
+        "response_model": "manual",
+    }
 
 
 async def complete(
@@ -506,47 +421,9 @@ async def complete(
 ) -> str:
     """Make a completion request to the LLM.
 
-    Transport retries (429, 500, timeout) are handled by the Router.
+    MANUAL MODE OVERRIDE: Always returns a generic placeholder string.
     """
-    router, config = get_router(config)
-    model_name = get_model_name(config)
-
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-
-    try:
-        kwargs: dict[str, Any] = {
-            "model": "primary",
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "timeout": LLM_TIMEOUT_COMPLETION,
-        }
-        if _supports_temperature(config.provider, model_name):
-            kwargs["temperature"] = temperature
-        reasoning_effort = _get_reasoning_effort(config.provider, model_name)
-        if reasoning_effort:
-            kwargs["reasoning_effort"] = reasoning_effort
-
-        response = await router.acompletion(**kwargs)
-
-        content = _extract_choice_text(response.choices[0])
-        if not content:
-            raise ValueError("Empty response from LLM")
-        # Strip thinking tags from reasoning models (deepseek-r1, qwq, etc.)
-        if "<think>" in content:
-            content = _strip_thinking_tags(content)
-            if not content:
-                raise ValueError("Response contained only thinking content, no output")
-        return content
-    except Exception as e:
-        # Log the actual error server-side for debugging
-        logging.error(f"LLM completion failed: {e}", extra={
-                      "model": model_name})
-        raise ValueError(
-            "LLM completion failed. Please check your API configuration and try again."
-        ) from e
+    return "[[MANUAL_AI_PLACEHOLDER]]"
 
 
 def _supports_json_mode(model_name: str) -> bool:
@@ -754,100 +631,6 @@ async def complete_json(
 ) -> dict[str, Any]:
     """Make a completion request expecting JSON response.
 
-    Uses JSON mode when available, with app-level retries for content-quality
-    issues (malformed JSON, truncation).  Transport retries (429, 500, timeout)
-    are handled by the Router and are NOT retried again here.
+    MANUAL MODE OVERRIDE: Always returns a generic placeholder JSON structure.
     """
-    router, config = get_router(config)
-    model_name = get_model_name(config)
-
-    # Build messages
-    json_system = (
-        system_prompt or ""
-    ) + "\n\nYou must respond with valid JSON only. No explanations, no markdown."
-    messages = [
-        {"role": "system", "content": json_system},
-        {"role": "user", "content": prompt},
-    ]
-
-    # Check if we can use JSON mode
-    use_json_mode = _supports_json_mode(model_name)
-
-    for attempt in range(retries + 1):
-        try:
-            kwargs: dict[str, Any] = {
-                "model": "primary",
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "timeout": _calculate_timeout("json", max_tokens, config.provider),
-            }
-            if _supports_temperature(config.provider, model_name):
-                # LLM-002: Increase temperature on retry for variation
-                kwargs["temperature"] = _get_retry_temperature(attempt)
-            reasoning_effort = _get_reasoning_effort(
-                config.provider, model_name)
-            if reasoning_effort:
-                kwargs["reasoning_effort"] = reasoning_effort
-
-            # Add JSON mode if supported
-            if use_json_mode:
-                kwargs["response_format"] = {"type": "json_object"}
-
-            response = await router.acompletion(**kwargs)
-            content = _extract_choice_text(response.choices[0])
-
-            if not content:
-                raise ValueError("Empty response from LLM")
-
-            logging.debug(
-                f"LLM response (attempt {attempt + 1}): {content[:300]}")
-
-            # Extract and parse JSON
-            json_str = _extract_json(content)
-            result = json.loads(json_str)
-
-            # LLM-001: Check if parsed result appears truncated
-            if isinstance(result, dict) and _appears_truncated(result):
-                if attempt < retries:
-                    logging.warning(
-                        "Parsed JSON appears truncated (attempt %d/%d), retrying",
-                        attempt + 1,
-                        retries + 1,
-                    )
-                    messages[-1]["content"] = (
-                        prompt
-                        + "\n\nIMPORTANT: Output the COMPLETE JSON object with ALL sections including personalInfo. Do not truncate."
-                    )
-                    continue
-                logging.warning(
-                    "Parsed JSON appears truncated on final attempt, proceeding with result"
-                )
-
-            return result
-
-        except json.JSONDecodeError as e:
-            # Content quality — malformed JSON, retry with prompt hint
-            logging.warning(f"JSON parse failed (attempt {attempt + 1}): {e}")
-            if attempt < retries:
-                messages[-1]["content"] = (
-                    prompt
-                    + "\n\nIMPORTANT: Output ONLY a valid JSON object. Start with { and end with }."
-                )
-                continue
-            raise ValueError(
-                f"Failed to parse JSON after {retries + 1} attempts: {e}")
-
-        except ValueError as e:
-            # Content quality — empty response, JSON extraction failure
-            logging.warning(f"Content extraction failed (attempt {attempt + 1}): {e}")
-            if attempt < retries:
-                continue
-            raise
-
-        except Exception:
-            # Transport errors — Router already retried with backoff.
-            # Cooldowns are disabled (see _build_router); no additional
-            # retry is attempted here.
-            raise
-
-    raise ValueError(f"Failed after {retries + 1} attempts")
+    return {"status": "manual_ai_placeholder"}
