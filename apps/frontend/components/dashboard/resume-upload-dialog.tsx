@@ -19,9 +19,10 @@ import {
   CheckCircle2Icon,
 } from 'lucide-react';
 import { useFileUpload, formatBytes } from '@/hooks/use-file-upload';
-import { getUploadUrl } from '@/lib/api/client';
+import { getUploadUrl, apiPost } from '@/lib/api/client';
 import { useTranslations } from '@/lib/i18n';
 import { retryProcessing } from '@/lib/api/resume';
+import { ManualAIDialog } from '@/components/ui/manual-ai-dialog';
 
 interface ResumeUploadDialogProps {
   trigger?: React.ReactNode;
@@ -51,6 +52,12 @@ export function ResumeUploadDialog({
   } | null>(null);
   const [failedResumeId, setFailedResumeId] = useState<string | null>(null);
   const [isRetryingProcessing, setIsRetryingProcessing] = useState(false);
+
+  // Manual AI states
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [uploadedResumeId, setUploadedResumeId] = useState<string | null>(null);
+  const [manualIsSubmitting, setManualIsSubmitting] = useState(false);
+
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
   const setIsOpen = (nextOpen: boolean) => {
@@ -113,24 +120,12 @@ export function ResumeUploadDialog({
         is_master?: boolean;
       };
       if (data.resume_id) {
-        const processingFailed = data.processing_status === 'failed';
-        const successMessage = data.is_master
-          ? t('dashboard.uploadDialog.successMaster')
-          : t('dashboard.uploadDialog.success');
-        if (processingFailed) {
-          // Keep dialog open on failure so users can retry processing.
-          setUploadFeedback({
-            type: 'error',
-            message: t('dashboard.uploadDialog.parsingFailedKeepOpen'),
-          });
-          setFailedResumeId(data.resume_id);
-          return;
-        }
-        handleUploadSuccess({
-          resumeId: data.resume_id,
-          fileId: uploadedFile.id,
-          message: successMessage,
-        });
+        // Since we are in manual mode, uploading a PDF does NOT run the real AI parse.
+        // It saves the document but processing_status is likely 'failed' or 'pending' because the AI override returned generic placeholder.
+        // We will immediately ask the user to manually parse the resume.
+        setUploadedResumeId(data.resume_id);
+        setShowManualDialog(true);
+        setIsOpen(false); // Close the upload dialog, open manual dialog
       } else {
         setFailedResumeId(null);
         setUploadFeedback({
@@ -186,7 +181,82 @@ export function ResumeUploadDialog({
     }
   };
 
+  const handleManualSubmit = async (jsonString: string) => {
+    if (!uploadedResumeId) return;
+    setManualIsSubmitting(true);
+    try {
+      const parsedJson = JSON.parse(jsonString);
+      await apiPost('/enrichment/manual-parse-resume', {
+        resume_id: uploadedResumeId,
+        parsed_json: parsedJson,
+      });
+      setShowManualDialog(false);
+      handleUploadSuccess({
+        resumeId: uploadedResumeId,
+        message: 'Resume parsed manually successfully!',
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Invalid JSON or error applying manual parse.');
+    } finally {
+      setManualIsSubmitting(false);
+    }
+  };
+
+  const manualPromptText = `Please parse the attached resume into the following JSON format. Make sure to extract all relevant details such as work experience, projects, skills, and education. Ensure the JSON is completely valid and follows the structure perfectly. Do not include markdown \`\`\`json blocks. Return raw JSON.`;
+
+  const expectedFormatStr = `{
+  "personalInfo": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1 234 567 8900",
+    "location": "City, State",
+    "linkedin": "linkedin.com/in/johndoe",
+    "github": "github.com/johndoe",
+    "portfolio": "johndoe.com"
+  },
+  "workExperience": [
+    {
+      "company": "Company Name",
+      "title": "Job Title",
+      "location": "City, State",
+      "startDate": "2020-01",
+      "endDate": "2023-01",
+      "description": [
+        "Responsibility or achievement 1",
+        "Responsibility or achievement 2"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University Name",
+      "degree": "Bachelor of Science",
+      "field": "Computer Science",
+      "location": "City, State",
+      "startDate": "2016-08",
+      "endDate": "2020-05"
+    }
+  ],
+  "personalProjects": [
+    {
+      "name": "Project Name",
+      "role": "Role (optional)",
+      "url": "github.com/project",
+      "startDate": "2021-01",
+      "endDate": "2021-06",
+      "description": [
+        "Project detail 1",
+        "Project detail 2"
+      ]
+    }
+  ],
+  "technicalSkills": "Python, React, TypeScript, Node.js"
+}`;
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
@@ -325,5 +395,16 @@ export function ResumeUploadDialog({
         </div>
       </DialogContent>
     </Dialog>
+    <ManualAIDialog
+      open={showManualDialog}
+      onOpenChange={setShowManualDialog}
+      title="Parse Uploaded Resume"
+      instructions="Please copy the prompt and provide it to your AI (ChatGPT/Claude/etc) along with the text of your resume. Then paste the valid JSON result here."
+      promptText={manualPromptText}
+      expectedFormat={expectedFormatStr}
+      onSubmit={handleManualSubmit}
+      isSubmitting={manualIsSubmitting}
+    />
+    </>
   );
 }

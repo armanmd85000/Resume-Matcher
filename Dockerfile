@@ -111,7 +111,9 @@ USER appuser
 RUN python -m playwright install chromium
 
 # Expose the public port (backend remains internal on 8000)
-EXPOSE 3000
+# Use the PORT environment variable or default to 3000
+ENV PORT=3000
+EXPOSE ${PORT}
 
 # Volume for persistent data
 VOLUME ["/app/backend/data"]

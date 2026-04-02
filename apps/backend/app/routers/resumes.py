@@ -17,6 +17,7 @@ from fastapi.responses import Response
 from app.config_cache import get_content_language, load_config as _load_config
 from app.database import db
 from app.pdf import render_resume_pdf, PDFRenderError
+from app.docx_exporter import build_docx
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -1344,6 +1345,21 @@ async def update_resume_endpoint(
         ),
     )
 
+
+@router.get("/{resume_id}/docx")
+async def download_resume_docx(resume_id: str):
+    """Download the resume as a DOCX document."""
+    resume_doc = db.table("resumes").get(doc_id=int(resume_id))
+    if not resume_doc:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    try:
+        docx_bytes = build_docx(resume_doc.get("content", {}))
+        headers = {"Content-Disposition": f'attachment; filename="resume_{resume_id}.docx"'}
+        return Response(content=docx_bytes, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
+    except Exception as e:
+        logger.error(f"Error generating DOCX: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate DOCX")
 
 @router.get("/{resume_id}/pdf")
 async def download_resume_pdf(

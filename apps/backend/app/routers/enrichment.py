@@ -379,6 +379,81 @@ async def apply_enhancements(
 
 
 # ============================================
+# Manual Override Feature Endpoints
+# ============================================
+
+from pydantic import BaseModel
+from typing import Any
+
+class ManualParseResumeRequest(BaseModel):
+    resume_id: str
+    parsed_json: dict[str, Any]
+
+class ManualTailorResumeRequest(BaseModel):
+    resume_id: str
+    tailored_json: dict[str, Any]
+    job_description: str
+
+@router.post("/manual-parse-resume")
+async def manual_parse_resume(request: ManualParseResumeRequest) -> dict:
+    """Accepts manually parsed JSON and updates the resume in the DB."""
+    resume_id = request.resume_id
+    resume = db.get_resume(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    updated_content = json.dumps(request.parsed_json, indent=2)
+    try:
+        db.update_resume(
+            resume_id,
+            {
+                "content": updated_content,
+                "processed_data": request.parsed_json,
+                "processing_status": "ready"
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to save manual parse to database: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save manual parse.")
+
+    return {"message": "Manual parse applied successfully", "resume_id": resume_id}
+
+@router.post("/manual-tailor")
+async def manual_tailor(request: ManualTailorResumeRequest) -> dict:
+    """Accepts manually tailored JSON and creates a new tailored resume record."""
+    parent_resume_id = request.resume_id
+    parent_resume = db.get_resume(parent_resume_id)
+    if not parent_resume:
+        raise HTTPException(status_code=404, detail="Parent resume not found")
+
+    new_resume_id = str(uuid4())
+
+    # Optional logic: create a tailored DB record using the new JSON
+    # Usually tailoring is stored as a new record pointing to parent_id
+    new_resume = {
+        "id": new_resume_id,
+        "parent_id": parent_resume_id,
+        "content": json.dumps(request.tailored_json, indent=2),
+        "processed_data": request.tailored_json,
+        "processing_status": "ready",
+        "job_description": request.job_description,
+    }
+
+    try:
+        db.create_resume(new_resume)
+    except Exception as e:
+        logger.error(f"Failed to create manual tailored resume: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save tailored resume.")
+
+    return {
+        "message": "Manual tailor applied successfully",
+        "resume_id": new_resume_id,
+        "parent_id": parent_resume_id,
+        "processed_data": request.tailored_json
+    }
+
+
+# ============================================
 # AI Regenerate Feature Endpoints
 # ============================================
 

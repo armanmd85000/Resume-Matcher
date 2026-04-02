@@ -16,10 +16,12 @@ import {
 import { fetchPromptConfig, type PromptOption } from '@/lib/api/config';
 import { Dropdown } from '@/components/ui/dropdown';
 import { useStatusCache } from '@/lib/context/status-cache';
-import { Loader2, ArrowLeft, AlertTriangle, Settings } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useTranslations } from '@/lib/i18n';
 import { DiffPreviewModal } from '@/components/tailor/diff-preview-modal';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ManualAIDialog } from '@/components/ui/manual-ai-dialog';
+import { apiPost } from '@/lib/api/client';
 
 export default function TailorPage() {
   const { t } = useTranslations();
@@ -38,6 +40,10 @@ export default function TailorPage() {
   const [pendingResult, setPendingResult] = useState<ImprovedResult | null>(null);
   const [diffConfirmError, setDiffConfirmError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+
+  // Manual AI states
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [manualIsSubmitting, setManualIsSubmitting] = useState(false);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [showMissingDiffDialog, setShowMissingDiffDialog] = useState(false);
   const [missingDiffResult, setMissingDiffResult] = useState<ImprovedResult | null>(null);
@@ -76,7 +82,7 @@ export default function TailorPage() {
   } = useStatusCache();
 
   // Check if LLM is configured
-  const isLlmConfigured = !statusLoading && systemStatus?.llm_configured;
+  const isLlmConfigured = true;
 
   useEffect(() => {
     const storedId = localStorage.getItem('master_resume_id');
@@ -225,17 +231,38 @@ export default function TailorPage() {
       setError(validationError);
       return;
     }
-    const resumeId = masterResumeId;
-    setIsLoading(true);
-    setError(null);
-    startTimer();
+    setShowManualDialog(true);
+  };
+
+  const handleManualSubmit = async (jsonString: string) => {
+    if (!masterResumeId) return;
+    setManualIsSubmitting(true);
     try {
-      await runGenerate(resumeId, trimmedDescription);
+      const parsedJson = JSON.parse(jsonString);
+      const res = await apiPost('/enrichment/manual-tailor', {
+        resume_id: masterResumeId,
+        tailored_json: parsedJson,
+        job_description: jobDescription,
+      });
+      const data = await res.json() as { resume_id: string };
+      setShowManualDialog(false);
+      // Navigate using the new resume ID via history or direct push
+      router.push(`/resumes/${data.resume_id}`);
+    } catch (err) {
+      console.error(err);
+      alert('Invalid JSON or error applying manual tailor.');
     } finally {
-      setIsLoading(false);
-      stopTimer();
+      setManualIsSubmitting(false);
     }
   };
+
+  const manualPromptText = `Please tailor my provided resume JSON to match the job description below. Modify the descriptions, experience bullets, and skills to highlight the most relevant aspects of my background for this specific job. Keep the overall JSON structure perfectly valid and identical to the original schema. Do not output markdown code blocks. Return only the raw JSON.
+
+Job Description:
+${jobDescription.trim()}
+`;
+
+  const expectedFormatStr = `(Use the exact same JSON schema as the original parsed resume, just with updated values)`;
 
   // User confirms changes
   const handleConfirmChanges = async () => {
@@ -347,31 +374,6 @@ export default function TailorPage() {
           </p>
         </div>
 
-        {/* LLM Not Configured Warning */}
-        {!statusLoading && !isLlmConfigured && (
-          <div className="mb-6 border-2 border-amber-500 bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-mono text-sm font-bold uppercase tracking-wider text-amber-800">
-                  {t('tailor.setupRequiredTitle')}
-                </p>
-                <p className="font-mono text-xs text-amber-700 mt-1">
-                  {t('tailor.noApiKeyMessage')}
-                </p>
-                <Link
-                  href="/settings"
-                  className="inline-flex items-center gap-2 mt-3 text-amber-700 hover:text-amber-900 transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="font-mono text-xs font-bold uppercase underline">
-                    {t('tailor.configureApiKey')}
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="space-y-6">
           <Dropdown
@@ -449,8 +451,6 @@ export default function TailorPage() {
                 <Loader2 className="w-5 h-5 animate-spin" />
                 {t('common.checking')}
               </>
-            ) : !isLlmConfigured ? (
-              t('tailor.configureApiKeyFirst')
             ) : (
               t('tailor.generateTailored')
             )}
@@ -500,6 +500,17 @@ export default function TailorPage() {
         onCancel={handleCloseMissingDiffDialog}
         confirmDisabled={isLoading || !missingDiffResult}
         errorMessage={missingDiffError ?? undefined}
+      />
+
+      <ManualAIDialog
+        open={showManualDialog}
+        onOpenChange={setShowManualDialog}
+        title="Tailor Resume to Job Description"
+        instructions="Copy the prompt (which includes the job description you just pasted) and provide it to your AI along with your master resume JSON. Paste the resulting tailored JSON here."
+        promptText={manualPromptText}
+        expectedFormat={expectedFormatStr}
+        onSubmit={handleManualSubmit}
+        isSubmitting={manualIsSubmitting}
       />
     </div>
   );

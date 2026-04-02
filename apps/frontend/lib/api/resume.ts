@@ -251,6 +251,15 @@ export function getResumePdfUrl(
   return `${API_BASE}/resumes/${encodeURIComponent(normalizedId)}/pdf?${params.toString()}`;
 }
 
+export async function downloadResumeDocx(resumeId: string): Promise<Blob> {
+  const url = `${API_BASE}/resumes/${resumeId}/docx`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to download DOCX');
+  }
+  return response.blob();
+}
+
 export async function downloadResumePdf(
   resumeId: string,
   settings?: TemplateSettings,
