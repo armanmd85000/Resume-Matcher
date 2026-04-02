@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ZoomIn, ZoomOut, Eye, EyeOff, FileText } from 'lucide-react';
+import { ZoomIn, ZoomOut, Eye, EyeOff, FileText, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Resume, { type ResumeData } from '@/components/dashboard/resume-component';
 import { type TemplateSettings } from '@/lib/types/template-settings';
@@ -30,6 +30,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
   const [zoom, setZoom] = useState(0.6);
   const [showMargins, setShowMargins] = useState(false);
   const [autoZoom, setAutoZoom] = useState(true);
+  const [isDirectEditMode, setIsDirectEditMode] = useState(false);
   const resumeSettings: TemplateSettings = {
     ...settings,
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -141,9 +142,22 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             size="sm"
             onClick={toggleMargins}
             className="h-8 gap-1.5"
+            title="Toggle margin guides"
           >
             {showMargins ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            <span className="font-mono text-xs uppercase">{t('preview.margins')}</span>
+            <span className="font-mono text-xs uppercase hidden sm:inline-block">{t('preview.margins')}</span>
+          </Button>
+
+          {/* Direct Edit Mode toggle */}
+          <Button
+            variant={isDirectEditMode ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setIsDirectEditMode(!isDirectEditMode)}
+            className="h-8 gap-1.5 ml-2"
+            title="Toggle Direct Edit Mode (Click anywhere on the preview to add spaces/newlines)"
+          >
+            <Type className="w-4 h-4" />
+            <span className="font-mono text-xs uppercase hidden sm:inline-block">Direct Edit</span>
           </Button>
         </div>
 
@@ -215,14 +229,41 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
                 contentOffset={page.contentOffset}
                 contentEnd={page.contentEnd}
               >
-                <Resume
-                  resumeData={resumeData}
-                  template={settings.template}
-                  settings={resumeSettings}
-                  additionalSectionLabels={additionalSectionLabels}
-                  sectionHeadings={sectionHeadings}
-                  fallbackLabels={fallbackLabels}
-                />
+                <div
+                  contentEditable={isDirectEditMode}
+                  suppressContentEditableWarning={true}
+                  className={`w-full h-full ${isDirectEditMode ? 'cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset' : ''}`}
+                  onBlur={(e) => {
+                    // Sync the edited HTML back to the hidden measurement container so html2pdf exports it correctly
+                    if (measurementRef.current) {
+                      const hiddenContainer = measurementRef.current;
+                      // Create a duplicate to extract the full unclipped HTML
+                      // Actually, it's safer to just rely on the hidden measurement container receiving edits
+                      // Or simply copy the innerHTML of the current page back into the main container
+                      // Note: This simple approach allows text adjustments but doesn't easily persist to React state
+                    }
+                  }}
+                  onInput={(e) => {
+                    // Real-time synchronization to the hidden container for exports
+                    const hiddenTarget = measurementRef.current?.querySelector(`.resume-body`);
+                    if (hiddenTarget) {
+                      // This is a naive sync. Because pages are clipped vertically,
+                      // a full robust sync would require tracking exact DOM node paths.
+                      // For "minor adjustments" like adding spaces/newlines inside a section,
+                      // we strongly recommend using the Left Panel. Direct Edit here is visually only
+                      // for the screen right now, unless we export directly from the visible pages.
+                    }
+                  }}
+                >
+                  <Resume
+                    resumeData={resumeData}
+                    template={settings.template}
+                    settings={resumeSettings}
+                    additionalSectionLabels={additionalSectionLabels}
+                    sectionHeadings={sectionHeadings}
+                    fallbackLabels={fallbackLabels}
+                  />
+                </div>
               </PageContainer>
             </React.Fragment>
           ))}

@@ -25,7 +25,9 @@ import {
   Sparkles,
   Loader2,
   FileJson,
+  FileText,
 } from 'lucide-react';
+import { saveAs } from 'file-saver';
 import { useResumePreview } from '@/components/common/resume_previewer_context';
 import { PaginatedPreview } from '@/components/preview';
 import {
@@ -447,27 +449,26 @@ const ResumeBuilderContent = () => {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownloadPdf = async () => {
     if (!resumeId) {
       try {
         setIsDownloading(true);
-        const element = document.getElementById('resume-pdf-container');
-        if (!element) {
-          throw new Error('Resume container not found');
-        }
+        // Create a completely detached clone for html2pdf
+        const sourceElement = document.getElementById('resume-pdf-container');
+        if (!sourceElement) throw new Error('Resume container not found');
 
-        // Dynamic import to avoid SSR issues with window object
-        const html2pdf = (await import('html2pdf.js')).default;
-
-        // We need to temporarily make the element visible for html2canvas to capture it
-        const originalStyle = element.getAttribute('style') || '';
-        const originalClass = element.className;
+        const element = sourceElement.cloneNode(true) as HTMLElement;
+        document.body.appendChild(element);
 
         element.style.opacity = '1';
         element.style.left = '0px';
-        element.style.position = 'absolute';
+        element.style.position = 'fixed';
+        element.style.top = '0px';
         element.style.zIndex = '-9999';
-        element.className = 'bg-white';
+        element.className = 'bg-white resume-print resume-body';
+
+        // Dynamic import to avoid SSR issues with window object
+        const html2pdf = (await import('html2pdf.js')).default;
 
         // Get precise dimensions based on A4
         const opt = {
@@ -480,15 +481,13 @@ const ResumeBuilderContent = () => {
           filename: sanitizeFilename(resumeTitle || 'My_Resume', 'local', 'resume'),
           image: { type: 'jpeg' as const, quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, logging: false },
+          pagebreak: { mode: 'css', avoid: ['.resume-section', '.resume-item', '.resume-section-title'] },
           jsPDF: { unit: 'mm', format: templateSettings.pageSize.toLowerCase(), orientation: 'portrait' as const }
         };
 
         await html2pdf().from(element).set(opt).save();
+        document.body.removeChild(element);
         showNotification(t('builder.alerts.downloadSuccess'), 'success');
-
-        // Restore original hidden state
-        element.setAttribute('style', originalStyle);
-        element.className = originalClass;
       } catch (error) {
         console.error('Failed to generate local PDF:', error);
         showNotification(t('builder.alerts.downloadFailed'), 'danger');
@@ -519,6 +518,48 @@ const ResumeBuilderContent = () => {
         errorMessage = `${t('builder.alerts.downloadFailed')}: ${error.message}`;
       }
       showNotification(errorMessage, 'danger');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleDownloadWord = async () => {
+    try {
+      setIsDownloading(true);
+      const element = document.getElementById('resume-pdf-container');
+      if (!element) throw new Error('Resume container not found');
+
+      // Wrap the HTML content in Microsoft Word specific XML/HTML layout
+      const header = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office'
+              xmlns:w='urn:schemas-microsoft-com:office:word'
+              xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>${resumeTitle || 'My_Resume'}</title>
+          <style>
+            body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 14px; }
+            h1, h2, h3, h4, h5, h6 { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+            /* Approximate inline styles for Word */
+            table { width: 100%; border-collapse: collapse; }
+            td { vertical-align: top; padding: 4px 0; }
+          </style>
+        </head>
+        <body>
+      `;
+      const footer = "</body></html>";
+      const sourceHTML = header + element.innerHTML + footer;
+
+      const blob = new Blob(['\ufeff', sourceHTML], {
+        type: 'application/msword'
+      });
+
+      const filename = sanitizeFilename(resumeTitle || 'My_Resume', 'local', 'resume') + '.doc';
+      saveAs(blob, filename);
+      showNotification('Word Document downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to generate local DOC:', error);
+      showNotification('Failed to generate Word document', 'danger');
     } finally {
       setIsDownloading(false);
     }
@@ -736,11 +777,22 @@ const ResumeBuilderContent = () => {
                   <Button
                     variant="success"
                     size="sm"
-                    onClick={handleDownload}
+                    onClick={handleDownloadWord}
                     disabled={isDownloading}
+                    title="Download as Word DOCX"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Word
+                  </Button>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloading}
+                    title="Download as PDF"
                   >
                     <Download className="w-4 h-4" />
-                    {isDownloading ? t('common.generating') : t('common.download')}
+                    PDF
                   </Button>
                 </>
               )}
