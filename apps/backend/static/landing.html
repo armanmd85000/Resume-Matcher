@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Matcher API</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .status {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            border-radius: 4px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 0.95em;
+        }
+        .status-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-right: 10px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .links {
+            margin-top: 30px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        a {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+        a:hover {
+            background: #764ba2;
+        }
+        .secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+        .secondary:hover {
+            background: #d1d5db;
+        }
+        .features {
+            text-align: left;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .features h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .feature-list {
+            list-style: none;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            color: #666;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Resume Matcher</h1>
+        <p class="subtitle">AI-Powered Resume Tailoring with Claude</p>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-icon">✓</span>
+                <span><strong>Backend API:</strong> Running on Claude 3.5 Sonnet</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon">✓</span>
+                <span><strong>LLM Provider:</strong> Anthropic (Claude)</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon">✓</span>
+                <span><strong>Status:</strong> Live on Heroku</span>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/docs">📚 API Documentation</a>
+            <a href="/redoc" class="secondary">📖 ReDoc</a>
+        </div>
+
+        <div class="features">
+            <h3>Available Endpoints</h3>
+            <ul class="feature-list">
+                <li><code>GET /api/v1/health</code> - Health check</li>
+                <li><code>POST /api/v1/resume/upload</code> - Upload resume</li>
+                <li><code>POST /api/v1/resume/generate</code> - Generate tailored resume</li>
+                <li><code>POST /api/v1/cover-letter/generate</code> - Generate cover letter</li>
+                <li><code>GET /api/v1/config</code> - Get configuration</li>
+            </ul>
+        </div>
+
+        <div class="features">
+            <h3>Quick Start</h3>
+            <p style="text-align: left; color: #666; margin-top: 10px;">
+                The API is ready to use! Visit <code>/docs</code> to explore all endpoints and try them out interactively.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

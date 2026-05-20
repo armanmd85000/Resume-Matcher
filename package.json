@@ -1,0 +1,12 @@
+{
+  "name": "resume-matcher",
+  "version": "2.0.0",
+  "description": "AI-powered resume tailoring",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "build": "echo 'Frontend build handled by release phase'",
+    "start": "echo 'App runs via Procfile'"
+  }
+}
